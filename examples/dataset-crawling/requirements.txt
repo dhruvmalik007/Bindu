@@ -1,0 +1,7 @@
+browser-use
+datasets
+gradio
+boto3
+botocore
+huggingface-hub
+gradio

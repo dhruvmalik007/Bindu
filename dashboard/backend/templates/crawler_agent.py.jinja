@@ -1,0 +1,64 @@
+from bindu.penguin.bindufy import bindufy
+from agno.agent import Agent
+from agno.tools.duckduckgo import DuckDuckGoTools 
+from agno.models.openai import OpenAIChat
+{% if observability_enabled %}
+from bindu.observability import setup as setup_observability
+# Initialize observability once at startup
+setup_observability()
+{% endif %}
+
+# Agent Configuration
+NAME = "{{ name }}"
+PORT = {{ port }}
+TARGET_URL = "{{ target_url }}"
+INSTRUCTIONS = """{{ instructions }}
+You are a crawling agent assigned to monitor: {{ target_url }}
+"""
+
+# Define the agent
+agent = Agent(
+    instructions=INSTRUCTIONS,
+    model=OpenAIChat(id="gpt-4o"),
+    tools=[DuckDuckGoTools()], 
+)
+
+config = {
+    "author": "{{ author }}",
+    "name": NAME,
+    "description": "{{ description }}",
+    "deployment": {"url": f"http://localhost:{PORT}", "expose": True},
+    "skills": {{ skills }},
+    "monitoring": {{ observability_enabled }},
+    "telemetry": {{ observability_enabled }},
+    
+    {% if auth.enabled %}
+    "auth": {
+        "enabled": True,
+        "provider": "{{ auth.provider }}",
+        "domain": "{{ auth.domain }}",
+        "audience": "{{ auth.audience }}",
+    },
+    {% endif %}
+
+    {% if payment.enabled %}
+    "execution_cost": {
+        "amount": "{{ payment.amount }}",
+        "token": "{{ payment.token }}",
+        "network": "{{ payment.network }}",
+        "pay_to_address": "{{ payment.pay_to_address }}",
+    },
+    {% endif %}
+}
+
+def handler(messages: list[dict[str, str]]):
+    """
+    Process incoming messages.
+    """
+    # The agent logic delegates to Agno
+    result = agent.run(input=messages)
+    return result
+
+if __name__ == "__main__":
+    print(f"Starting agent {NAME} on port {PORT}...")
+    bindufy(config, handler)

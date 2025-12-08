@@ -196,3 +196,7 @@ examples/.pebbling/*
 
 # Auto-generated version file (generated during build)
 bindu/_version.py
+
+
+## also the example templates of generated agents 
+examples/dataset-crawling/dashboard/generated_agents/*

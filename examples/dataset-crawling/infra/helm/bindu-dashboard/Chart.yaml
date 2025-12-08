@@ -1,0 +1,6 @@
+apiVersion: v2
+name: bindu-dashboard
+description: A Helm chart for deploying the Bindu Agent Dashboard and Orchestrator
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

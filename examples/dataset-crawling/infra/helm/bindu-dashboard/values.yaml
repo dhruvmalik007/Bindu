@@ -1,0 +1,62 @@
+environment: production
+
+backend:
+  replicaCount: 1
+  image:
+    repository: bindu-backend
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 8000
+  env:
+    PROJECT__ENVIRONMENT: production
+    OBSERVABILITY__ENABLED: "true"
+  resources: 
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+frontend:
+  replicaCount: 1
+  image:
+    repository: bindu-frontend
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 3000
+  env:
+    NEXT_PUBLIC_API_URL: "https://api.bindu.example.com"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: 
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: dashboard.bindu.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+    - host: api.bindu.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: backend
+  tls:
+    - secretName: bindu-tls
+      hosts:
+        - dashboard.bindu.example.com
+        - api.bindu.example.com
