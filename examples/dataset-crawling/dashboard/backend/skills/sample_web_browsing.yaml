@@ -1,0 +1,65 @@
+id: skills/web-browsing
+name: Web Browsing
+version: 1.0.0
+author: dev@getbindu.com
+description: |
+  Browse the web, search, and extract information from web pages.
+
+tags:
+  - browsing
+  - search
+  - extraction
+
+input_modes:
+  - text/plain
+output_modes:
+  - application/json
+
+capabilities_detail:
+  search:
+    supported: true
+    types:
+      - web
+    limitations: "Depends on network access"
+  extract:
+    supported: true
+    types:
+      - html
+      - markdown
+
+requirements:
+  packages:
+    - agno
+  system:
+    - network
+  min_memory_mb: 256
+
+performance:
+  avg_processing_time_ms: 1500
+  concurrent_requests: 3
+  memory_per_request_mb: 128
+
+documentation:
+  overview: |
+    This skill allows an agent to search and browse the web.
+  use_cases:
+    when_to_use:
+      - Finding sources and URLs related to a topic
+      - Quick page scraping
+    when_not_to_use:
+      - When offline mode is required
+  input_structure: |
+    Provide a natural language query.
+  output_format: |
+    JSON containing summary + urls.
+  error_handling:
+    - "Network error: retry with backoff"
+  examples:
+    - title: "Find docs"
+      input: "Find Bindu protocol documentation"
+      output: "{ urls: [ ... ] }"
+  best_practices:
+    for_developers:
+      - "Validate URLs before fetching"
+    for_orchestrators:
+      - "Prefer firecrawl for heavy crawling"

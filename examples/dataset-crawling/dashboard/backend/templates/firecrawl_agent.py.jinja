@@ -1,11 +1,12 @@
 from bindu.penguin.bindufy import bindufy
 from agno.agent import Agent
-from agno.tools.duckduckgo import DuckDuckGoTools 
 from agno.models.openai import OpenAIChat
+from firecrawl import FirecrawlApp
+import os
+
 {% if observability.enabled %}
 from bindu.observability import setup as setup_observability
 # Configure OTEL env vars (recommended pattern)
-import os
 {% if observability.otlp_endpoint %}
 os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "{{ observability.otlp_endpoint }}"
 {% endif %}
@@ -39,14 +40,42 @@ NAME = "{{ name }}"
 PORT = {{ port }}
 TARGET_URL = "{{ target_url }}"
 INSTRUCTIONS = """{{ instructions }}
-You are a crawling agent assigned to monitor: {{ target_url }}
+You are a Firecrawl-powered agent assigned to crawl: {{ target_url }}
+You have access to the Firecrawl API to crawl, scrape, map, and search the web.
 """
+
+# Firecrawl Tool Wrapper
+class FirecrawlTools:
+    def __init__(self, api_key: str):
+        self.app = FirecrawlApp(api_key=api_key)
+
+    def crawl(self, url: str):
+        """Crawls a URL and all its subpages."""
+        return self.app.crawl_url(url, params={"crawlerOptions": {"limit": 10}})
+
+    def scrape(self, url: str):
+        """Scrapes a single URL."""
+        return self.app.scrape_url(url)
+    
+    def map(self, url: str):
+        """Maps a website to find all URLs."""
+        return self.app.map_url(url)
+    
+    def search(self, query: str):
+        """Searches the web."""
+        return self.app.search(query)
+
+api_key = "{{ firecrawl_api_key }}" or os.getenv("FIRECRAWL_API_KEY")
+if not api_key:
+    raise ValueError("Firecrawl API Key is required")
+
+firecrawl_tools = FirecrawlTools(api_key=api_key)
 
 # Define the agent
 agent = Agent(
     instructions=INSTRUCTIONS,
     model=OpenAIChat(id="gpt-4o"),
-    tools=[DuckDuckGoTools()], 
+    tools=[firecrawl_tools], 
 )
 
 config = {
@@ -74,7 +103,7 @@ config = {
         {% endif %}
     },
     "scheduler": {
-        "type": "{{ storage.type }}", # Using same backend for scheduler for now
+        "type": "{{ storage.type }}", 
     },
 
     {% if auth.enabled %}
@@ -100,10 +129,9 @@ def handler(messages: list[dict[str, str]]):
     """
     Process incoming messages.
     """
-    # The agent logic delegates to Agno
     result = agent.run(input=messages)
     return result
 
 if __name__ == "__main__":
-    print(f"Starting agent {NAME} on port {PORT}...")
+    print(f"Starting Firecrawl agent {NAME} on port {PORT}...")
     bindufy(config, handler)

@@ -4,5 +4,8 @@ jinja2
 pydantic
 httpx
 kubernetes
-# bindu and agno are expected to be installed in the environment
-# as they are used by the generated agents and likely the dashboard itself
+firecrawl-py
+browser-use
+agno
+requests
+# bindu is expected to be installed in the environment

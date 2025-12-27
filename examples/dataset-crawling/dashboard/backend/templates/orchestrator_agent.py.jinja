@@ -1,11 +1,14 @@
 from bindu.penguin.bindufy import bindufy
 from agno.agent import Agent
-from agno.tools.duckduckgo import DuckDuckGoTools 
 from agno.models.openai import OpenAIChat
+from agno.tools.duckduckgo import DuckDuckGoTools
+import requests
+import os
+import json
+
 {% if observability.enabled %}
 from bindu.observability import setup as setup_observability
 # Configure OTEL env vars (recommended pattern)
-import os
 {% if observability.otlp_endpoint %}
 os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "{{ observability.otlp_endpoint }}"
 {% endif %}
@@ -37,16 +40,49 @@ setup_observability()
 # Agent Configuration
 NAME = "{{ name }}"
 PORT = {{ port }}
-TARGET_URL = "{{ target_url }}"
 INSTRUCTIONS = """{{ instructions }}
-You are a crawling agent assigned to monitor: {{ target_url }}
+You are the Orchestrator Agent. Your goal is to research a user query and delegate crawling tasks.
+1. Analyze the user query.
+2. Use Perplexity (via tool) to research the query and find relevant URLs.
+3. Decide which specialized agent (Firecrawl or Browser-Use) is best for each URL.
+4. Output a plan or delegate the task (simulated delegation for now).
 """
+
+# Perplexity Tool
+class PerplexityTool:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://api.perplexity.ai/chat/completions"
+
+    def research(self, query: str):
+        """
+        Researches the query using Perplexity API to find facts and sources.
+        """
+        payload = {
+            "model": "llama-3.1-sonar-small-128k-online",
+            "messages": [
+                {"role": "system", "content": "Be precise and concise. Return a list of relevant URLs found."},
+                {"role": "user", "content": query}
+            ]
+        }
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        response = requests.post(self.base_url, json=payload, headers=headers)
+        return response.json()
+
+api_key = "{{ perplexity_api_key }}" or os.getenv("PERPLEXITY_API_KEY")
+tools = [DuckDuckGoTools()]
+if api_key:
+    pplx_tool = PerplexityTool(api_key=api_key)
+    tools.append(pplx_tool.research)
 
 # Define the agent
 agent = Agent(
     instructions=INSTRUCTIONS,
     model=OpenAIChat(id="gpt-4o"),
-    tools=[DuckDuckGoTools()], 
+    tools=tools, 
 )
 
 config = {
@@ -74,7 +110,7 @@ config = {
         {% endif %}
     },
     "scheduler": {
-        "type": "{{ storage.type }}", # Using same backend for scheduler for now
+        "type": "{{ storage.type }}", 
     },
 
     {% if auth.enabled %}
@@ -100,10 +136,9 @@ def handler(messages: list[dict[str, str]]):
     """
     Process incoming messages.
     """
-    # The agent logic delegates to Agno
     result = agent.run(input=messages)
     return result
 
 if __name__ == "__main__":
-    print(f"Starting agent {NAME} on port {PORT}...")
+    print(f"Starting Orchestrator agent {NAME} on port {PORT}...")
     bindufy(config, handler)

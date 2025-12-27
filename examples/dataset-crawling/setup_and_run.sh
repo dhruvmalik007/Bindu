@@ -19,14 +19,15 @@ cd dashboard/backend
 # Check if uv is installed, otherwise use pip
 if command -v uv &> /dev/null; then
     echo "Using uv for installation..."
-    # uv pip install -r requirements.txt # Optional if managing venv manually
-    # For simplicity in this script, assuming user has a venv or is okay with system/user install
-    # Or just use uv run which handles venvs nicely
-    echo "Backend dependencies will be handled by 'uv run' or installed manually if preferred."
+    uv pip install -r requirements.txt
+    # Install playwright browsers for browser-use agent
+    echo "Installing Playwright browsers..."
+    uv run playwright install chromium
 else
     echo "Using pip for installation..."
     pip install -r requirements.txt
     pip install "uvicorn[standard]"
+    playwright install chromium
 fi
 
 cd ../..
@@ -54,7 +55,8 @@ trap cleanup EXIT
 echo -e "${GREEN}Starting Backend (localhost:8000)...${NC}"
 if command -v uv &> /dev/null; then
     cd dashboard/backend
-    uv run --with fastapi --with uvicorn --with jinja2 --with pydantic --with httpx uvicorn main:app --host 0.0.0.0 --port 8000 --reload &
+    # Run using the installed environment
+    uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload &
     BACKEND_PID=$!
     cd ../..
 else

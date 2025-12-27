@@ -1,11 +1,15 @@
 from bindu.penguin.bindufy import bindufy
 from agno.agent import Agent
-from agno.tools.duckduckgo import DuckDuckGoTools 
 from agno.models.openai import OpenAIChat
+from browser_use import Agent as BrowserAgent
+from browser_use import Controller
+from langchain_openai import ChatOpenAI
+import asyncio
+import os
+
 {% if observability.enabled %}
 from bindu.observability import setup as setup_observability
 # Configure OTEL env vars (recommended pattern)
-import os
 {% if observability.otlp_endpoint %}
 os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "{{ observability.otlp_endpoint }}"
 {% endif %}
@@ -39,14 +43,39 @@ NAME = "{{ name }}"
 PORT = {{ port }}
 TARGET_URL = "{{ target_url }}"
 INSTRUCTIONS = """{{ instructions }}
-You are a crawling agent assigned to monitor: {{ target_url }}
+You are a Browser-use agent assigned to navigate and interact with: {{ target_url }}
+You use a headless browser to perform tasks.
 """
+
+# Browser-Use Wrapper for Agno/Bindu
+# Since browser-use has its own agent loop, we need to bridge it.
+# This simple wrapper takes a task description and runs the browser agent.
+
+class BrowserUseTool:
+    def __init__(self):
+        self.llm = ChatOpenAI(model="gpt-4o")
+
+    async def run_browser_task(self, task: str):
+        """Runs a browser automation task."""
+        agent = BrowserAgent(
+            task=task,
+            llm=self.llm,
+        )
+        result = await agent.run()
+        return result
+
+# We need a way to run async tool in synchronous handler if bindufy handler is sync.
+# Typically Bindu handlers can be async. Let's assume sync for now and use asyncio.run
+def run_browser_task_sync(task: str):
+    tool = BrowserUseTool()
+    return asyncio.run(tool.run_browser_task(task))
 
 # Define the agent
 agent = Agent(
     instructions=INSTRUCTIONS,
     model=OpenAIChat(id="gpt-4o"),
-    tools=[DuckDuckGoTools()], 
+    # We can add a python tool that calls browser-use
+    tools=[run_browser_task_sync], 
 )
 
 config = {
@@ -74,7 +103,7 @@ config = {
         {% endif %}
     },
     "scheduler": {
-        "type": "{{ storage.type }}", # Using same backend for scheduler for now
+        "type": "{{ storage.type }}", 
     },
 
     {% if auth.enabled %}
@@ -100,10 +129,9 @@ def handler(messages: list[dict[str, str]]):
     """
     Process incoming messages.
     """
-    # The agent logic delegates to Agno
     result = agent.run(input=messages)
     return result
 
 if __name__ == "__main__":
-    print(f"Starting agent {NAME} on port {PORT}...")
+    print(f"Starting Browser-Use agent {NAME} on port {PORT}...")
     bindufy(config, handler)

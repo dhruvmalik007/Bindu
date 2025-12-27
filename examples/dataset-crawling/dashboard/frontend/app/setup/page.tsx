@@ -5,12 +5,18 @@ import { useRouter } from 'next/navigation';
 
 export default function SetupPage() {
     const router = useRouter();
+    const defaultAgentPort = 9100 + Math.floor(Math.random() * 500);
     const [formData, setFormData] = useState({
         name: '',
         description: '',
+        type: 'crawler',
         target_url: '',
         instructions: '',
-        port: 8000,
+        // IMPORTANT: do not use 8000 (backend). agents must run on their own port.
+        port: defaultAgentPort,
+        firecrawl_api_key: '',
+        perplexity_api_key: '',
+        openai_api_key: '',
         observability: {
             enabled: true,
             otlp_endpoint: '',
@@ -47,12 +53,25 @@ export default function SetupPage() {
             });
 
             if (res.ok) {
+                const created = await res.json();
+                const agentId = created?.id;
+                if (agentId) {
+                    const startRes = await fetch(`http://localhost:8000/agents/${agentId}/start`, {
+                        method: 'POST',
+                    });
+                    if (!startRes.ok) {
+                        const text = await startRes.text();
+                        alert(`Agent created but failed to start: ${text}`);
+                    }
+                }
                 router.push('/');
             } else {
-                alert('Failed to create agent');
+                const text = await res.text();
+                alert(`Failed to create agent: ${text}`);
             }
         } catch (error) {
             console.error('Error creating agent:', error);
+            alert(`Error creating agent: ${String(error)}`);
         }
     };
 
@@ -87,15 +106,71 @@ export default function SetupPage() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-300">Target URL</label>
-                        <input
-                            type="url"
-                            required
+                        <label className="block text-sm font-medium text-gray-300">Agent Type</label>
+                        <select
                             className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
-                            value={formData.target_url}
-                            onChange={(e) => setFormData({ ...formData, target_url: e.target.value })}
-                        />
+                            value={formData.type}
+                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                        >
+                            <option value="crawler">Standard Crawler (DuckDuckGo)</option>
+                            <option value="firecrawl">Firecrawl Agent</option>
+                            <option value="browser-use">Browser Use Agent</option>
+                            <option value="orchestrator">Orchestrator Agent</option>
+                        </select>
                     </div>
+
+                    {formData.type !== 'orchestrator' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300">Target URL</label>
+                            <input
+                                type="url"
+                                required={formData.type !== 'orchestrator'}
+                                className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+                                value={formData.target_url}
+                                onChange={(e) => setFormData({ ...formData, target_url: e.target.value })}
+                            />
+                        </div>
+                    )}
+
+                    {/* API Keys based on Type */}
+                    {formData.type === 'firecrawl' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300">Firecrawl API Key</label>
+                            <input
+                                type="password"
+                                required
+                                className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+                                value={formData.firecrawl_api_key}
+                                onChange={(e) => setFormData({ ...formData, firecrawl_api_key: e.target.value })}
+                            />
+                        </div>
+                    )}
+
+                    {formData.type === 'orchestrator' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300">Perplexity API Key</label>
+                            <input
+                                type="password"
+                                required
+                                className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+                                value={formData.perplexity_api_key}
+                                onChange={(e) => setFormData({ ...formData, perplexity_api_key: e.target.value })}
+                            />
+                        </div>
+                    )}
+
+                    {(formData.type === 'browser-use' || formData.type === 'orchestrator') && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300">OpenAI API Key</label>
+                            <input
+                                type="password"
+                                required
+                                className="mt-1 block w-full rounded-md border-gray-600 bg-gray-700 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2"
+                                value={formData.openai_api_key}
+                                onChange={(e) => setFormData({ ...formData, openai_api_key: e.target.value })}
+                            />
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-sm font-medium text-gray-300">Port</label>
